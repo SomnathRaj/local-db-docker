@@ -1,0 +1,159 @@
+version: "3"
+
+services:
+  # MySQL service
+  # =====================================
+  mysql:
+    image: mysql:8.4.0
+    command:
+      --mysql-native-password=ON
+      --log-error-verbosity=3
+    container_name: LocalPC-MySQL
+    restart: unless-stopped
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: demo
+      MYSQL_ROOT_PASSWORD: 12345
+      MYSQL_ROOT_HOST: '%'  # Allow root access from any host
+    volumes:
+      - my-datavolume:/var/lib/mysql
+      # - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - local-docker-services
+  
+  # mysql:
+  # image: mysql:8.4.0
+  # command: --default-authentication-plugin=mysql_native_password
+  # container_name: LocalPC-MySQL
+  # restart: unless-stopped
+  # ports:
+  #   - 3306:3306
+  # environment:
+  #   MYSQL_DATABASE: demo
+  #   MYSQL_ROOT_PASSWORD: 12345
+  #   MYSQL_ROOT_HOST: '%'  # Allow root access from any host
+  # volumes:
+  #   - my-datavolume:/var/lib/mysql
+  # networks:
+  #   - local-docker-services
+
+  # docker run -d --name LocalPC-MySQL --restart unless-stopped -p 3306:3306 -e MYSQL_DATABASE=demo -e MYSQL_ROOT_PASSWORD=12345 -v my-datavolume:/var/lib/mysql --network local-docker-services mysql:8.4.0 --mysql-native-password=ON --log-error-verbosity=3
+
+  # PhpMyAdmin service
+  # =====================================
+  phpmyadmin:
+    platform: linux/amd64
+    image: phpmyadmin/phpmyadmin
+    container_name: LocalPC-PMA
+    links:
+      - mysql
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 300M
+    restart: always
+    ports:
+      - 8081:80
+    depends_on:
+      - mysql
+    networks:
+      - local-docker-services
+
+  # Mongo service
+  # =====================================
+  mongo:
+    container_name: LocalPC-MONGO
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: 12345
+    ports:
+      - '27017:27017'
+    volumes:
+      - 'mongo:/data/db'
+    networks:
+      - local-docker-services
+
+  # Redis service
+  # =====================================
+  redis:
+    container_name: LocalPC-REDIS
+    image: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - local-docker-services
+
+volumes:
+  my-datavolume:
+  mongo:
+
+networks:
+  local-docker-services:
+    name: cc-localpc-docker-network
+
+# Needed by external applications to connect to the container
+# =====================================
+# networks:
+#   app-network:
+#     external: true
+#     name: cc-localpc-docker-network
+
+# Example docker-compose.yml
+# =====================================
+# version: "3.8"
+# services:
+#   php-app:
+#     container_name: php-app
+#     build: .
+#     ports:
+#       - "7000:7000"
+#     volumes:
+#       - .:/var/www/html
+#     networks:
+#       - local-network
+# networks:
+#   local-network:
+#     external: true
+#     name: cc-localpc-docker-network
+# =====================================
+
+# PHP-FPM Service with extensions
+# =====================================
+# php:
+#   build:
+#     context: .
+#     dockerfile: ./php/Dockerfile-php
+#   container_name: php_app
+#   restart: unless-stopped
+#   volumes:
+#     - ./src:/var/www/html
+#     - ./php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+#   networks:
+#     - local-docker-services
+
+# Nginx Service with pre-loaded config
+# =====================================
+# nginx:
+#   image: nginx:alpine
+#   container_name: nginx_server
+#   restart: unless-stopped
+#   ports:
+#     - "80:80"
+#     - "443:443"
+#   volumes:
+#     - ./src:/var/www/html # There should be a `src` folder in the root from where it will copy source files
+#     - ./nginx/app.conf:/etc/nginx/conf.d/default.conf
+#     - ./logs/nginx:/var/log/nginx # There should be a `logs` folder in the root
+#   depends_on:
+#     - php
+#   networks:
+#     - local-docker-services
+# =====================================
+# sudo docker-compose -f docker-compose-local.yml build --no-cache
+# docker-compose -f docker-compose-local.yml up -d
+# docker-compose -f docker-compose-local.yml down
+# docker stop $(docker ps | grep billingmgr- | awk '{print $1}')
